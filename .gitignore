@@ -1,11 +1,9 @@
+
+
 # Virtual environment
 myenv/
 
-# Data files
-data/
 
-# Model files
-models/
 
 # IDE files
 .idea/
