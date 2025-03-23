@@ -6,8 +6,14 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
 import joblib
+from sklearn.ensemble import RandomForestClassifier
+import argparse
 
-
+# Parse command-line arguments
+parser = argparse.ArgumentParser(description="Train a spam classification model.")
+parser.add_argument("--model", type=str, required=True, choices=["logistic_regression", "random_forest"],
+                    help="Model to train: 'logistic_regression' or 'random_forest'")
+args = parser.parse_args()
 
 def load_dataset():
   data = pd.read_csv('../data/spam_cleaned.csv', encoding='latin-1')
@@ -61,23 +67,30 @@ def train_logistic(X_train,X_test_tfidf,y_train,y_test):
 
     # Evaluate on the test set
     y_pred = log_reg.predict(X_test_tfidf)
-    print_training_results(y_test,y_pred)
+    print_training_results(y_test,y_pred,"Logistic Regression")
     joblib.dump(log_reg, '../models/logistic_regression_model.pkl')
     print("Model saved!")
 
 
 
 def train_forest(X_train,X_test_tfidf,y_train,y_test):
-   # Train Logistic Regression
-    log_reg = LogisticRegression(random_state=42)
-    log_reg.fit(X_train, y_train)
+  # Train Random Forest
+  rf = RandomForestClassifier(  n_estimators=100,  # Number of trees
+    max_depth=100,       # Limit tree depth
+    min_samples_split=20,
+    min_samples_leaf=20,
+    random_state=42)
+  rf.fit(X_train, y_train)
 
-    # Evaluate on the test set
-    y_pred = log_reg.predict(X_test_tfidf)
-    print_training_results(y_test,y_pred)
-    joblib.dump(log_reg, '../models/logistic_regression_model.pkl')
-    print("Model saved!")
-    return
+  # Evaluate on the test set
+  y_pred_rf = rf.predict(X_test_tfidf,)
+  # Adjust the threshold (e.g., 0.3)
+  threshold = 0.3
+  y_pred_adjusted = (y_pred_rf >= threshold).astype(int)
+  # Calculate metrics
+  print_training_results(y_test,y_pred_adjusted,"Random Forest")
+  joblib.dump(rf, '../models/random_forest_model.pkl')
+  print("Model saved!")
 
 def calculate_metrics(y_test,y_pred):
     # Calculate metrics
@@ -87,10 +100,10 @@ def calculate_metrics(y_test,y_pred):
     f1 = f1_score(y_test, y_pred)
     return accuracy, precision, recall, f1
 
-def print_training_results(y_test, y_pred):
+def print_training_results(y_test, y_pred,model_name):
     accuracy, precision, recall,f1 = calculate_metrics(y_test,y_pred)
     # Print classification report
-    print("Logistic Regression Metrics:")
+    print(model_name + " Metrics:")
     print(f"Accuracy: {accuracy:.4f}")
     print(f"Precision: {precision:.4f}")
     print(f"Recall: {recall:.4f}")
@@ -98,14 +111,16 @@ def print_training_results(y_test, y_pred):
     print("\nClassification Report:")
     print(classification_report(y_test, y_pred))
 
-LOGISTIC = True
-FOREST = not LOGISTIC
 
 data =load_dataset()
 X_train_tfidf,X_test_tfidf, y_train, y_test = balance_data(data)
 
-if(LOGISTIC):
+if( args.model == "logistic_regression"):
+  print("Training Logistic Regression...")
   train_logistic(X_train_tfidf, X_test_tfidf, y_train, y_test)
-elif(FOREST):
+elif(args.model == "random_forest"):
+  print("Training Random Forest...")
   train_forest(X_train_tfidf, X_test_tfidf, y_train, y_test)
+else:
+   print("Missing --model Parameter, Accepted Values: [","logistic_regression, ", "random_forest]")
 
