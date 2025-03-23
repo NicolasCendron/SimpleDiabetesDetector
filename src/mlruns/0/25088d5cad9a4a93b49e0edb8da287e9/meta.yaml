@@ -1,0 +1,15 @@
+artifact_uri: mlflow-artifacts:/0/25088d5cad9a4a93b49e0edb8da287e9/artifacts
+end_time: 1742772702612
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 25088d5cad9a4a93b49e0edb8da287e9
+run_name: luxuriant-hawk-732
+run_uuid: 25088d5cad9a4a93b49e0edb8da287e9
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1742772697961
+status: 4
+tags: []
+user_id: nicol

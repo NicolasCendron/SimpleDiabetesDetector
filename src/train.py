@@ -8,6 +8,9 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 import joblib
 from sklearn.ensemble import RandomForestClassifier
 import argparse
+import mlflow
+
+
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="Train a spam classification model.")
@@ -67,8 +70,10 @@ def train_logistic(X_train,X_test_tfidf,y_train,y_test):
 
     # Evaluate on the test set
     y_pred = log_reg.predict(X_test_tfidf)
-    print_training_results(y_test,y_pred,"Logistic Regression")
+    handle_training_results(y_test,y_pred,"Logistic Regression")
     joblib.dump(log_reg, '../models/logistic_regression_model.pkl')
+   
+    mlflow.sklearn.log_model(log_reg, args.model)
     print("Model saved!")
 
 
@@ -88,8 +93,10 @@ def train_forest(X_train,X_test_tfidf,y_train,y_test):
   threshold = 0.3
   y_pred_adjusted = (y_pred_rf >= threshold).astype(int)
   # Calculate metrics
-  print_training_results(y_test,y_pred_adjusted,"Random Forest")
+  handle_training_results(y_test,y_pred_adjusted,"Random Forest")
   joblib.dump(rf, '../models/random_forest_model.pkl')
+  print("ANtes do ERRo")
+  mlflow.sklearn.log_model(rf, args.model)
   print("Model saved!")
 
 def calculate_metrics(y_test,y_pred):
@@ -100,7 +107,7 @@ def calculate_metrics(y_test,y_pred):
     f1 = f1_score(y_test, y_pred)
     return accuracy, precision, recall, f1
 
-def print_training_results(y_test, y_pred,model_name):
+def handle_training_results(y_test, y_pred,model_name):
     accuracy, precision, recall,f1 = calculate_metrics(y_test,y_pred)
     # Print classification report
     print(model_name + " Metrics:")
@@ -109,18 +116,26 @@ def print_training_results(y_test, y_pred,model_name):
     print(f"Recall: {recall:.4f}")
     print(f"F1-Score: {f1:.4f}")
     print("\nClassification Report:")
+    mlflow.log_metric("accuracy", accuracy)
+    mlflow.log_metric("precision", precision)
+    mlflow.log_metric("recall", recall)
+    mlflow.log_metric("f1_score", f1)
     print(classification_report(y_test, y_pred))
 
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_registry_uri("sqlite:///mlflow.db")
+with mlflow.start_run():
 
-data =load_dataset()
-X_train_tfidf,X_test_tfidf, y_train, y_test = balance_data(data)
+  data =load_dataset()
+  X_train_tfidf,X_test_tfidf, y_train, y_test = balance_data(data)
 
-if( args.model == "logistic_regression"):
-  print("Training Logistic Regression...")
-  train_logistic(X_train_tfidf, X_test_tfidf, y_train, y_test)
-elif(args.model == "random_forest"):
-  print("Training Random Forest...")
-  train_forest(X_train_tfidf, X_test_tfidf, y_train, y_test)
-else:
-   print("Missing --model Parameter, Accepted Values: [","logistic_regression, ", "random_forest]")
-
+  if( args.model == "logistic_regression"):
+    print("Training Logistic Regression...")
+    train_logistic(X_train_tfidf, X_test_tfidf, y_train, y_test)
+  elif(args.model == "random_forest"):
+    print("Training Random Forest...")
+    train_forest(X_train_tfidf, X_test_tfidf, y_train, y_test)
+  else:
+    print("Missing --model Parameter, Accepted Values: [","logistic_regression, ", "random_forest]")
+    raise Exception("Error: No Model to Run")
+  #mlflow.register_model(f"runs:/{mlflow.active_run().info.run_id}/{args.model}", args.model)

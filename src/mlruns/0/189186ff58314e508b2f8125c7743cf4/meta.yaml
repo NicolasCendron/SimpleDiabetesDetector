@@ -1,0 +1,15 @@
+artifact_uri: mlflow-artifacts:/0/189186ff58314e508b2f8125c7743cf4/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 189186ff58314e508b2f8125c7743cf4
+run_name: placid-horse-183
+run_uuid: 189186ff58314e508b2f8125c7743cf4
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1742773594670
+status: 1
+tags: []
+user_id: nicol
