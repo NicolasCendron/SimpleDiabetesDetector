@@ -11,13 +11,6 @@ import argparse
 import mlflow
 
 
-
-# Parse command-line arguments
-parser = argparse.ArgumentParser(description="Train a spam classification model.")
-parser.add_argument("--model", type=str, required=True, choices=["logistic_regression", "random_forest"],
-                    help="Model to train: 'logistic_regression' or 'random_forest'")
-args = parser.parse_args()
-
 def load_dataset():
   data = pd.read_csv('../data/spam_cleaned_original.csv', encoding='latin-1')
   return data
@@ -63,7 +56,7 @@ def balance_data(data):
   #plot_classes(y_train_resampled,'Balanced Class Distribution')
   return X_train_resampled, x_test_tfidf, y_train_resampled, y_test
 
-def train_logistic(X_train,X_test_tfidf,y_train,y_test):
+def train_logistic(X_train,X_test_tfidf,y_train,y_test,model_name):
     # Train Logistic Regression
     log_reg = LogisticRegression(random_state=42)
     log_reg.fit(X_train, y_train)
@@ -73,12 +66,12 @@ def train_logistic(X_train,X_test_tfidf,y_train,y_test):
     handle_training_results(y_test,y_pred,"Logistic Regression")
     joblib.dump(log_reg, '../models/logistic_regression_model.pkl')
    
-    mlflow.sklearn.log_model(log_reg, args.model)
+    mlflow.sklearn.log_model(log_reg, model_name)
     print("Model saved!")
 
 
 
-def train_forest(X_train,X_test_tfidf,y_train,y_test):
+def train_forest(X_train,X_test_tfidf,y_train,y_test,model_name):
   # Train Random Forest
   rf = RandomForestClassifier(  n_estimators=100,  # Number of trees
     max_depth=100,       # Limit tree depth
@@ -95,8 +88,7 @@ def train_forest(X_train,X_test_tfidf,y_train,y_test):
   # Calculate metrics
   handle_training_results(y_test,y_pred_adjusted,"Random Forest")
   joblib.dump(rf, '../models/random_forest_model.pkl')
-  print("ANtes do ERRo")
-  mlflow.sklearn.log_model(rf, args.model)
+  mlflow.sklearn.log_model(rf, model_name)
   print("Model saved!")
 
 def calculate_metrics(y_test,y_pred):
@@ -122,20 +114,28 @@ def handle_training_results(y_test, y_pred,model_name):
     mlflow.log_metric("f1_score", f1)
     print(classification_report(y_test, y_pred))
 
-mlflow.set_tracking_uri("http://localhost:5000")
-mlflow.set_registry_uri("sqlite:///mlflow.db")
-with mlflow.start_run():
 
+def train(data,model_name):
+    X_train_tfidf,X_test_tfidf, y_train, y_test = balance_data(data)
+    if(model_name == "logistic_regression"):
+      print("Training Logistic Regression...")
+      train_logistic(X_train_tfidf, X_test_tfidf, y_train, y_test,model_name)
+    elif(model_name == "random_forest"):
+      print("Training Random Forest...")
+      train_forest(X_train_tfidf, X_test_tfidf, y_train, y_test,model_name)
+    else:
+      print("Missing --model Parameter, Accepted Values: [","logistic_regression, ", "random_forest]")
+      raise Exception("Error: No Model to Run")
+
+
+if __name__ == "__main__":
+   # Parse command-line arguments
+  parser = argparse.ArgumentParser(description="Train a spam classification model.")
+  parser.add_argument("--model", type=str, required=True, choices=["logistic_regression", "random_forest"],
+                      help="Model to train: 'logistic_regression' or 'random_forest'")
+  args = parser.parse_args()
+  mlflow.set_tracking_uri("http://localhost:5000")
+  mlflow.set_registry_uri("sqlite:///mlflow.db")
   data =load_dataset()
-  X_train_tfidf,X_test_tfidf, y_train, y_test = balance_data(data)
-
-  if( args.model == "logistic_regression"):
-    print("Training Logistic Regression...")
-    train_logistic(X_train_tfidf, X_test_tfidf, y_train, y_test)
-  elif(args.model == "random_forest"):
-    print("Training Random Forest...")
-    train_forest(X_train_tfidf, X_test_tfidf, y_train, y_test)
-  else:
-    print("Missing --model Parameter, Accepted Values: [","logistic_regression, ", "random_forest]")
-    raise Exception("Error: No Model to Run")
-  #mlflow.register_model(f"runs:/{mlflow.active_run().info.run_id}/{args.model}", args.model)
+  with mlflow.start_run():
+    train(data,args.model)

@@ -7,9 +7,6 @@ from nltk.stem import PorterStemmer
 
 # python -c "import nltk; nltk.download('stopwords'); nltk.download('punkt'); nltk.download('punkt_tab')"
 
-def load_dataset():
-  data = pd.read_csv('../data/spam.csv', encoding='latin-1')
-  return data
 
 def check_data(data):
    # Inspect the first few rows
@@ -21,7 +18,7 @@ def check_data(data):
   # Check the distribution of labels
   print(data['y'].value_counts())
 
-  plotClasses(data,'Original Class Distribution')
+  #plotClasses(data,'Original Class Distribution')
 
 
 def fix_classes(data):
@@ -59,8 +56,8 @@ def preprocess_text(data):
     
     return data
 
-def save_data(data):
-    data.to_csv('../data/spam_cleaned.csv', index=False)
+def save_data(data,suffix):
+    data.to_csv('../data/spam_cleaned' + suffix +'.csv', index=False)
     print("Data saves saved!")
    
 
@@ -72,12 +69,14 @@ def plotClasses(data,title):
   plt.ylabel('Count')
   plt.show()
 
+def process_data(data,suffix=''):
+  print("Process Data")
+  fixed_data = fix_classes(data)
+  processed_data = preprocess_text(fixed_data)
+  check_data(processed_data)
+  save_data(processed_data,suffix)
+  return processed_data
 
-data = load_dataset()
-fixed_data = fix_classes(data)
-
-#Processed texts
-processed_data = preprocess_text(fixed_data)
-check_data(processed_data)
- # Save the cleaned data
-save_data(processed_data)
+if __name__ == "__main__":
+  data = pd.read_csv('../data/spam.csv', encoding='latin-1')
+  process_data(data,'')
