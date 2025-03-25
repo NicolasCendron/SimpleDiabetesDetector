@@ -19,7 +19,7 @@ parser.add_argument("--model", type=str, required=True, choices=["logistic_regre
 args = parser.parse_args()
 
 def load_dataset():
-  data = pd.read_csv('../data/spam_cleaned.csv', encoding='latin-1')
+  data = pd.read_csv('../data/spam_cleaned_original.csv', encoding='latin-1')
   return data
 
 def plot_classes(data,title):
