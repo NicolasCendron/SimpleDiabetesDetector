@@ -16,19 +16,25 @@ Install Python 3.10 (recommended virtual env)
    pip install -r requirements.txt
    ```
 
+1.1 Split Data between "Original" and "New" to Monitor Drift Later
+
+python split_csv.py
+
 2. Preprocess data:
 
    python preprocess.py
 
-3. Train the model:
+3. Train the model (on "Original" data):
 
-   python train.py (Edit the LOGISTIC variable to cycle between Regression and Forest Ensemble)
+   python train.py --model logistic_regression
 
-   TODO: change to a parameter
+   python train.py --model random_forest
 
 4. Deploy the model (Locally):
 
-   python app.py
+   python app.py --model logistic_regression
+
+   python app.py --model random_forest
 
    Once Running, Test using POST method to http://localhost:8000/predict
 
@@ -41,6 +47,10 @@ Install Python 3.10 (recommended virtual env)
    {
    "text":"Son, remember to wear a Coat. "
    }
+
+5. Monitor Drift
+
+   python monitor_drift.py
 
 License
 This project is licensed under the MIT License.

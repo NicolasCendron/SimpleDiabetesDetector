@@ -30,14 +30,20 @@ class SpamDetectionPipeline:
 
       #3. Training
       #!!!!IMPORTANTE!!!! Na hora de Retreinar tem que Continuar o Treinamento não substituir!
+      #!!!! IMPORTANTE !!!! Separar Training de Evaluation
       train(processed_data,model_name)
 
       #4. Evaluation
 
       #5 Drift Analysis Setup
 
+      #6 Definir se deve retreinar
+
+
+
       if retrain==False:
         break
+    #7 Deploy Flask Docker
       
     
 
