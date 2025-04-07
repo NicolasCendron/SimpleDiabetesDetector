@@ -3,7 +3,7 @@ from evidently import ColumnMapping
 from evidently.report import Report
 from evidently.metrics import DatasetDriftMetric
 from preprocess import process_data
-from train import train
+from train import train,load_model,save_model,handle_training_results
 import pandas as pd
 import argparse
 
@@ -31,17 +31,22 @@ class SpamDetectionPipeline:
       #3. Training
       #!!!!IMPORTANTE!!!! Na hora de Retreinar tem que Continuar o Treinamento não substituir!
       #!!!! IMPORTANTE !!!! Separar Training de Evaluation
-      train(processed_data,model_name)
-
+      
+      training_results =train(processed_data,model_name,load_model(model_name))
+      save_model(model_name)
       #4. Evaluation
+      handle_training_results(training_results)
+      
 
       #5 Drift Analysis Setup
 
       #6 Definir se deve retreinar
 
+      
 
 
       if retrain==False:
+        
         break
     #7 Deploy Flask Docker
       
@@ -51,7 +56,7 @@ class SpamDetectionPipeline:
 
 if __name__ == "__main__":
   with mlflow.start_run():
-    data1 = pd.read_csv('../data/spam.csv', encoding='latin-1')
+    data1 = pd.read_csv('../data/spam1.csv', encoding='latin-1')
     data2 = pd.read_csv('../data/spam2.csv', encoding='latin-1')
     data_flow = [{"data":data2,"suffix":"2"},{"data":data1,"suffix":"1"}]
     pipeline = SpamDetectionPipeline(data_flow=data_flow)

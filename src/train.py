@@ -9,10 +9,22 @@ import joblib
 from sklearn.ensemble import RandomForestClassifier
 import argparse
 import mlflow
+from dataclasses import dataclass
 
 
-def load_dataset():
-  data = pd.read_csv('../data/spam_cleaned_original.csv', encoding='latin-1')
+@dataclass
+class TrainingResults:
+    model: object
+    y_test: list
+    y_pred: list
+    name: str
+
+
+def get_model_path(model_name):
+   return f'../models/{model_name}_model.pkl'
+
+def load_dataset(csv_path):
+  data = pd.read_csv(csv_path, encoding='latin-1')
   return data
 
 def plot_classes(data,title):
@@ -39,6 +51,7 @@ def convert_string_to_tfidf(X_train, X_test):
 
 # Balanceamento deixa para o Treinamento
 def balance_data(data):
+  print("Balance")
   # Separate features and target
   X = data['X']
   y = data['y']
@@ -56,28 +69,39 @@ def balance_data(data):
   #plot_classes(y_train_resampled,'Balanced Class Distribution')
   return X_train_resampled, x_test_tfidf, y_train_resampled, y_test
 
-def train_logistic(X_train,X_test_tfidf,y_train,y_test,model_name):
+def train_logistic(X_train,X_test_tfidf,y_train,y_test,model_name, old_model):
     # Train Logistic Regression
-    log_reg = LogisticRegression(random_state=42)
+
+    if old_model != None:
+       print("Continue Training where stopped")
+       log_reg = old_model
+    else:
+       log_reg = LogisticRegression(random_state=42)
+    
+    
     log_reg.fit(X_train, y_train)
 
     # Evaluate on the test set
     y_pred = log_reg.predict(X_test_tfidf)
-    handle_training_results(y_test,y_pred,"Logistic Regression")
-    joblib.dump(log_reg, '../models/logistic_regression_model.pkl')
+    
+    
+    return TrainingResults(model=log_reg, y_test=y_test, y_pred=y_pred, name=model_name)
    
-    mlflow.sklearn.log_model(log_reg, model_name)
-    print("Model saved!")
 
 
+def train_forest(X_train,X_test_tfidf,y_train,y_test,model_name,old_model):
 
-def train_forest(X_train,X_test_tfidf,y_train,y_test,model_name):
-  # Train Random Forest
-  rf = RandomForestClassifier(  n_estimators=100,  # Number of trees
+  if old_model != None:
+       print("Continue Training where stopped")
+       rf = old_model
+  else:
+       rf =  RandomForestClassifier(  n_estimators=100,  # Number of trees
     max_depth=100,       # Limit tree depth
     min_samples_split=20,
     min_samples_leaf=20,
     random_state=42)
+
+  # Train Random Forest
   rf.fit(X_train, y_train)
 
   # Evaluate on the test set
@@ -85,11 +109,19 @@ def train_forest(X_train,X_test_tfidf,y_train,y_test,model_name):
   # Adjust the threshold (e.g., 0.3)
   threshold = 0.3
   y_pred_adjusted = (y_pred_rf >= threshold).astype(int)
-  # Calculate metrics
-  handle_training_results(y_test,y_pred_adjusted,"Random Forest")
-  joblib.dump(rf, '../models/random_forest_model.pkl')
-  mlflow.sklearn.log_model(rf, model_name)
+  
+  return TrainingResults(model=rf, y_test=y_test, y_pred=y_pred_adjusted, name=model_name)
+  
+def save_model(model,model_name):
+  joblib.dump(model,get_model_path(model_name))
+  mlflow.sklearn.log_model(model, model_name)
   print("Model saved!")
+
+def load_model(model_name):
+  try:
+    return joblib.load(get_model_path(model_name))
+  except FileNotFoundError:
+    return None
 
 def calculate_metrics(y_test,y_pred):
     # Calculate metrics
@@ -99,10 +131,10 @@ def calculate_metrics(y_test,y_pred):
     f1 = f1_score(y_test, y_pred)
     return accuracy, precision, recall, f1
 
-def handle_training_results(y_test, y_pred,model_name):
-    accuracy, precision, recall,f1 = calculate_metrics(y_test,y_pred)
+def handle_training_results(results:TrainingResults):
+    accuracy, precision, recall,f1 = calculate_metrics(results.y_test,results.y_pred)
     # Print classification report
-    print(model_name + " Metrics:")
+    print(results.name + " Metrics:")
     print(f"Accuracy: {accuracy:.4f}")
     print(f"Precision: {precision:.4f}")
     print(f"Recall: {recall:.4f}")
@@ -112,17 +144,19 @@ def handle_training_results(y_test, y_pred,model_name):
     mlflow.log_metric("precision", precision)
     mlflow.log_metric("recall", recall)
     mlflow.log_metric("f1_score", f1)
-    print(classification_report(y_test, y_pred))
+    print(classification_report(results.y_test, results.y_pred))
 
 
-def train(data,model_name):
+   
+
+def train(data,model_name,old_model=None):
     X_train_tfidf,X_test_tfidf, y_train, y_test = balance_data(data)
     if(model_name == "logistic_regression"):
       print("Training Logistic Regression...")
-      train_logistic(X_train_tfidf, X_test_tfidf, y_train, y_test,model_name)
+      return train_logistic(X_train_tfidf, X_test_tfidf, y_train, y_test,model_name,old_model)
     elif(model_name == "random_forest"):
       print("Training Random Forest...")
-      train_forest(X_train_tfidf, X_test_tfidf, y_train, y_test,model_name)
+      return train_forest(X_train_tfidf, X_test_tfidf, y_train, y_test,model_name,old_model)
     else:
       print("Missing --model Parameter, Accepted Values: [","logistic_regression, ", "random_forest]")
       raise Exception("Error: No Model to Run")
@@ -136,6 +170,17 @@ if __name__ == "__main__":
   args = parser.parse_args()
   mlflow.set_tracking_uri("http://localhost:5000")
   mlflow.set_registry_uri("sqlite:///mlflow.db")
-  data =load_dataset()
+  data1 =load_dataset('../data/spam_cleaned1.csv')
+  data2 =load_dataset('../data/spam_cleaned2.csv')
   with mlflow.start_run():
-    train(data,args.model)
+    print("Start")
+    results = train(data2,args.model)
+    handle_training_results(results)
+
+    save_model(results.model,results.name)
+    old_model = load_model(args.model)
+
+    print("Train on New Data")
+    results = train(data1,args.model,old_model)
+    handle_training_results(results)
+    save_model(results.model,results.name)
