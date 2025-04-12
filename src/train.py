@@ -19,6 +19,13 @@ class TrainingResults:
     y_pred: list
     name: str
 
+@dataclass
+class Metrics:
+    f1_score: float
+    accuracy: float
+    precision: float
+    recall: float
+
 
 def get_model_path(model_name):
    return f'../models/{model_name}_model.pkl'
@@ -78,13 +85,10 @@ def train_logistic(X_train,X_test_tfidf,y_train,y_test,model_name, old_model):
     else:
        log_reg = LogisticRegression(random_state=42)
     
-    
     log_reg.fit(X_train, y_train)
 
     # Evaluate on the test set
     y_pred = log_reg.predict(X_test_tfidf)
-    
-    
     return TrainingResults(model=log_reg, y_test=y_test, y_pred=y_pred, name=model_name)
    
 
@@ -145,9 +149,7 @@ def handle_training_results(results:TrainingResults):
     mlflow.log_metric("recall", recall)
     mlflow.log_metric("f1_score", f1)
     print(classification_report(results.y_test, results.y_pred))
-
-
-   
+    return Metrics(f1_score=f1, accuracy=accuracy,precision=precision,recall=recall)
 
 def train(data,model_name,old_model=None):
     X_train_tfidf,X_test_tfidf, y_train, y_test = balance_data(data)

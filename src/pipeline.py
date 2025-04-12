@@ -35,7 +35,7 @@ class SpamDetectionPipeline:
       training_results =train(processed_data,model_name,load_model(model_name))
       save_model(model_name)
       #4. Evaluation
-      handle_training_results(training_results)
+      results = handle_training_results(training_results)
       
 
       #5 Drift Analysis Setup
