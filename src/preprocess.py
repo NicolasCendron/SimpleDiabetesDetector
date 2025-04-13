@@ -1,63 +1,24 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-import re
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-from nltk.stem import PorterStemmer
+import seaborn as sns
 
-# python -c "import nltk; nltk.download('stopwords'); nltk.download('punkt'); nltk.download('punkt_tab')"
+from sklearn.preprocessing import LabelEncoder
 
+
+FIX_BMI = False
+FIX_AGE = False
 
 def check_data(data):
    # Inspect the first few rows
-  print(data.head())
+  print("Head", data.head())
 
   # Check for missing values
-  print(data.isnull().sum())
-
-  # Check the distribution of labels
-  print(data['y'].value_counts())
+  print("Missing Values", data.isnull().sum())
 
   #plotClasses(data,'Original Class Distribution')
 
-
-def fix_classes(data):
-
-  df1 = data[['v1','v2']]
-  df1 = df1.rename(columns={"v1": "y", "v2": "X"})
-  df1 = df1.dropna(subset=['X'])
-  df1 = df1.fillna('')
-  return df1
-
-# Initialize stemmer and stopwords
-stemmer = PorterStemmer()
-stop_words = set(stopwords.words('english'))
-
-def preprocess_text_function(text):
-    # Convert to lowercase
-    text = text.lower()
-    # Remove special characters and numbers
-    text = re.sub(r'[^a-zA-Z\s]', '', text)
-    # Tokenize the text
-    tokens = word_tokenize(text)
-    # Remove stopwords and stem the tokens
-    tokens = [stemmer.stem(word) for word in tokens if word not in stop_words]
-    # Join tokens back into a string
-    return ' '.join(tokens)
-
-def preprocess_text(data):
-    # Apply preprocessing to the SMS column
-    data['X'] = data['X'].apply(preprocess_text_function)
-
-    # Encode labels (ham = 0, spam = 1)
-    data['y'] = data['y'].map({'ham': 0, 'spam': 1})
-    print("Data cleaned!")
-
-    
-    return data
-
 def save_data(data,suffix):
-    data.to_csv('../data/spam_cleaned' + suffix +'.csv', index=False)
+    data.to_csv('../data/data_cleaned' + suffix +'.csv', index=False)
     print("Data saves saved!")
    
 
@@ -65,18 +26,54 @@ def save_data(data,suffix):
 def plotClasses(data,title):
   data['y'].value_counts().plot(kind='bar', color=['blue', 'red'])
   plt.title(title)
-  plt.xlabel('Class (0 = Ham, 1 = Spam)')
+  plt.xlabel('Class (0 = No Diabetes, 1 = Pre-Diabetes, 2 = Diabetes)')
   plt.ylabel('Count')
   plt.show()
 
-def process_data(data,suffix=''):
+
+def fix_age(df):
+  df = df[(df['Age'] >= 0) & (df['Age'] <= 120)]  # Filtrar idades realistas
+  return df
+
+
+def fix_BMI(df):
+  df['BMI_Age'] = df['BMI'] * df['Age']  
+  df['GenHlth_BMI'] = df['GenHlth'] * df['BMI']
+  df = df.drop("BMI", axis=1)
+  df = df.drop("Age", axis=1)
+  df = df.drop("GenHlth", axis=1)
+  return df
+
+
+def fix_features(df):
+  if FIX_AGE:
+    df = fix_age(df)
+  if FIX_BMI:
+    df = fix_BMI(df)
+  return df
+  
+def remove_prediabetes(df):
+  df_filtered = df[df['y'] != 1]  # Remove pré-diabetes (categoria 1)
+  df_filtered['y'] = df_filtered['y'].map({0: 0, 2: 1})  # Re-mapeia 2 para 1
+  return df_filtered
+
+
+def process_data(df,suffix=''):
   print("Process Data")
-  fixed_data = fix_classes(data)
-  processed_data = preprocess_text(fixed_data)
-  check_data(processed_data)
-  save_data(processed_data,suffix)
-  return processed_data
+  df.drop_duplicates(inplace=True)
+  df = df.rename(columns={"Diabetes_012": "y"})
+  df = fix_features(df)
+  df = remove_prediabetes(df)
+  #check_data(df)
+  save_data(df,suffix)
+  return df
 
 if __name__ == "__main__":
-  data = pd.read_csv('../data/spam.csv', encoding='latin-1')
-  process_data(data,'')
+  data = pd.read_csv('../data/data1.csv', encoding='latin-1')
+  clean_data = process_data(data,'1')
+ #plotClasses(clean_data,"Class Distribution 1")
+
+  data2 = pd.read_csv('../data/data2.csv', encoding='latin-1')
+  clean_data2 = process_data(data2,'2')
+  #plotClasses(clean_data,"Class Distribution 2")
+  

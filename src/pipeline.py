@@ -11,14 +11,14 @@ import argparse
 mlflow.set_tracking_uri("http://localhost:5000")
 mlflow.set_registry_uri("sqlite:///mlflow.db")
 parser = argparse.ArgumentParser(description="Train a spam classification model.")
-parser.add_argument("--model", type=str, required=True, choices=["logistic_regression", "random_forest"],
-                      help="Model to train: 'logistic_regression' or 'random_forest'")
+parser.add_argument("--model", type=str, required=True, choices=["xgboost", "random_forest"],
+                      help="Model to train: 'xgboost' or 'random_forest'")
 
 class SpamDetectionPipeline:
   def __init__(self,data_flow):
     self.data_flow =data_flow
     pass
-  def run(self,retrain =False,model_name='logistic_regression'):
+  def run(self,retrain =False,model_name='xgboost'):
 
     while self.data_flow != None and len(self.data_flow) > 0:
       
