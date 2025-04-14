@@ -4,6 +4,7 @@ from evidently.report import Report
 from evidently.metrics import DatasetDriftMetric
 from preprocess import process_data
 from train import train,save_model,handle_training_results
+from app import load_production_model
 import pandas as pd
 import argparse
 from mlflow.tracking import MlflowClient
@@ -18,6 +19,7 @@ parser.add_argument("--model", type=str, required=True, choices=["xgboost", "ran
 FORCE_DRIFT = True
 RUN_ID = 0
 EXPERIMENT_NAME = 'Diabetes-Prediction'
+MODEL_NAME = 'Diabetes-Model'
 
 class DiabetesDetectionPipeline:
   def __init__(self,data_flow):
@@ -60,9 +62,10 @@ class DiabetesDetectionPipeline:
     return new_data
 
   def save_new_best(self,training_results,old_roc,new_roc):
-    mlflow.register_model(model_uri=f"runs:/{run.info.run_id}/model",name=EXPERIMENT_NAME)
-    mlflow.sklearn.log_model(training_results.model, training_results.name)
-    save_model(training_results.model, training_results.name)  # Atualiza o modelo em produção
+    mlflow.sklearn.log_model(training_results.model, MODEL_NAME)
+    mlflow.register_model(model_uri=f"runs:/{run.info.run_id}/model",name=MODEL_NAME)
+    
+    save_model(training_results.model, "best")  # Atualiza o modelo em produção
     print(f"🎉 Novo melhor ROC: {new_roc:.4f} (anterior: {old_roc:.4f})")
 
 
@@ -98,6 +101,13 @@ class DiabetesDetectionPipeline:
     return True
 
   def update_production(self):
+    client = mlflow.tracking.MlflowClient()
+    client.transition_model_version_stage(
+    name=MODEL_NAME,
+    version=1,
+    stage="Production"
+)
+
     return True
 
 
@@ -135,14 +145,23 @@ class DiabetesDetectionPipeline:
         break
     #7 Deploy Flask Docker
     if need_deploy:
+      client = MlflowClient()
+      registered_models = client.search_registered_models()
+      for model in registered_models:
+          print(f"Modelo: {model.name}")
       self.update_production()
+      load_production_model()
+      
     
 
 
 
 if __name__ == "__main__":
   print("Waiting for mlflow:")
+  mlflow.set_tracking_uri("http://localhost:5000")
+  mlflow.set_registry_uri("sqlite:///mlflow.db")
   with mlflow.start_run(experiment_id=1) as run:
+    
     mlflow.set_experiment(EXPERIMENT_NAME)
     data1 = pd.read_csv('../data/data1.csv', encoding='latin-1')
     data2 = pd.read_csv('../data/data2.csv', encoding='latin-1')

@@ -3,43 +3,81 @@ from pydantic import BaseModel
 import joblib
 import uvicorn
 import argparse
+import mlflow
+from mlflow.tracking import MlflowClient
 
-
-
-
-
-
+MODEL_NAME = 'Diabetes-Model'
+EXPERIMENT_NAME = 'Diabetes-Prediction'
 # Define the input schema
-class TextInput(BaseModel):
-    text: str
+class PatientData(BaseModel):
+    HighBP: float
+    HighChol: float
+    CholCheck: float
+    BMI:float
+    Smoker:float
+    Stroke:float
+    HeartDiseaseorAttack:float
+    PhysActivity:float
+    Fruits:float
+    Veggies:float
+    HvyAlcoholConsump:float
+    AnyHealthcare:float
+    NoDocbcCost:float
+    GenHlth:float
+    MentHlth:float
+    PhysHlth:float
+    DiffWalk:float
+    Sex:float
+    Age:float
+    Education:float
+    Income:float
 
 # Initialize FastAPI app
 app = FastAPI()
-MODEL = None
+
 # Define the prediction endpoint
 @app.post("/predict")
-def predict(input: TextInput):
+def predict(data: PatientData):
+    input_data = data.dict()
 
-    # Make a prediction
-    prediction = model.predict(text_tfidf)
-    # Return the result
-   
-    result = "Not a Spam" if int(prediction[0]) == 0 else  "You found a Spam"
-    print("Result is: ",result, int(prediction[0]))
-    return {"prediction": result,"value":int(prediction[0])}
+    
+    prediction = model.predict([list(input_data.values())])[0]
+    
+    # Log no MLflow
+    # with mlflow.start_run():
+    #     mlflow.log_params(input_data)
+    #     mlflow.log_metric("prediction", prediction)
+    
+    if int(prediction) == 1:
+        return {"prediction: Risk of diabetes detected. See your doctor."}
+    else:
+      return {"prediction: No diabetes risk detected, but keep taking care"}
 
+@app.on_event("startup")
+def startup():
+    global model
+    try:
+        mlflow.set_tracking_uri("http://localhost:5000")
+        mlflow.set_registry_uri("sqlite:///mlflow.db")
+        client = MlflowClient()
+        registered_models = client.search_registered_models()
+        for model in registered_models:
+            print(f"Modelo: {model.name}")
+        model_name = MODEL_NAME
+        stage = "Production"
+        model_uri = f"models:/{model_name}/{stage}"
+        # FAlLTA CONSEGUIR CARREGAR DO MLFLOW
+        model = joblib.load('../models/best.pkl')
+    except Exception as e:
+        print(f"Erro ao carregar o modelo: {e}")
+        # Encerre a API se o modelo não puder ser carregado
+        raise RuntimeError("Modelo não disponível.")
 
-def deploy(model_name):
-   
+# Carregue o modelo em produção do MLflow
+def load_production_model():
+  uvicorn.run(app, host="0.0.0.0", port=8000)
 
 # Run the app
 if __name__ == "__main__":
-    # Parse command-line arguments
-  parser = argparse.ArgumentParser(description="Train a spam classification model.")
-  parser.add_argument("--model", type=str, required=True, choices=["logistic_regression", "random_forest"],
-                      help="Model to train: 'logistic_regression' or 'random_forest'")
-  args = parser.parse_args()
-  XG_BOOST = joblib.load('../models/xgboost_model.pkl')
-  RANDOM_FOREST = joblib.load('../models/random_forest_model.pkl')
-  print("Missing --model Parameter, Accepted Values: [","logistic_regression, ", "random_forest]")
+  load_production_model()
   uvicorn.run(app, host="0.0.0.0", port=8000)
