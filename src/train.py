@@ -51,7 +51,6 @@ def plot_classes(data,title):
 
 # Split 
 def split_data(df):
-  print("Split ")
   # Separate features and target
   X = df.drop('y', axis=1)  # Todas as colunas exceto 'y'
   y = df['y']  
@@ -62,7 +61,7 @@ def split_data(df):
   return X_train, X_test, y_train, y_test
 
 def train_xgboost(data,model_name):
-    # Train Logistic Regression
+    # Train XGBoost Regression
 
     X_train,X_test, y_train, y_test = split_data(data)
 
@@ -121,7 +120,6 @@ def train_forest(data,model_name):
   
 def save_model(model,model_name):
   joblib.dump(model,get_model_path(model_name))
-  mlflow.sklearn.log_model(model, model_name)
   print("Model saved!")
 
 def load_model(model_name):
@@ -149,18 +147,13 @@ def handle_training_results(results:TrainingResults):
     print(f"F1-Score: {f1:.4f}")
     print(f"Roc Auc Score: {roc_auc:.4f}")
     print("\nClassification Report:")
-    mlflow.log_metric("accuracy", accuracy)
-    mlflow.log_metric("precision", precision)
-    mlflow.log_metric("recall", recall)
-    mlflow.log_metric("f1_score", f1)
-    mlflow.log_metric("roc_auc_score", roc_auc)
     print(classification_report(results.y_test, results.y_pred))
     return Metrics(f1_score=f1, accuracy=accuracy,precision=precision,recall=recall,roc_auc_score=roc_auc)
 
 def train(data,model_name):
     
     if(model_name == "xgboost"):
-      print("Training Logistic Regression...")
+      print("Training XGBOOST...")
       return train_xgboost(data,model_name)
     elif(model_name == "random_forest"):
       print("Training Random Forest...")
@@ -198,11 +191,11 @@ if __name__ == "__main__":
       save_model(results.model,results.name)
   else:
       print("Start")
-      results = train(data1,args.model)
+      results = train(data2,args.model)
       handle_training_results(results)
       
       print("Train on New Data")
-      new_data = pd.concat([data1,data2],axis=0)
+      new_data = pd.concat([data2,data1],axis=0)
       results = train(new_data,args.model)
       handle_training_results(results)
      
