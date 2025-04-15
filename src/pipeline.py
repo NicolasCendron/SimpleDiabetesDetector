@@ -4,20 +4,18 @@ from evidently.report import Report
 from evidently.metrics import DatasetDriftMetric
 from preprocess import process_data
 from train import train,save_model,handle_training_results
-from app import load_production_model
+from app import update_production_model
 import pandas as pd
 import argparse
 from mlflow.tracking import MlflowClient
+from mlflow.models import infer_signature
 
-# Start MLflow run
-mlflow.set_tracking_uri("http://localhost:5000")
-mlflow.set_registry_uri("sqlite:///mlflow.db")
+
 parser = argparse.ArgumentParser(description="Train a spam classification model.")
 parser.add_argument("--model", type=str, required=True, choices=["xgboost", "random_forest"],
                       help="Model to train: 'xgboost' or 'random_forest'")
 
-FORCE_DRIFT = True
-RUN_ID = 0
+FORCE_DRIFT = False
 EXPERIMENT_NAME = 'Diabetes-Prediction'
 MODEL_NAME = 'Diabetes-Model'
 
@@ -61,7 +59,11 @@ class DiabetesDetectionPipeline:
     new_data = process_data(new_data, suffix)
     return new_data
 
+  def get_input_example(self):
+    return self.training_data.iloc[0:1]  # Exemplo: primeira linha dos dados de treino
+
   def save_new_best(self,training_results,old_roc,new_roc):
+    
     mlflow.sklearn.log_model(training_results.model, MODEL_NAME)
     mlflow.register_model(model_uri=f"runs:/{run.info.run_id}/model",name=MODEL_NAME)
     
@@ -101,10 +103,10 @@ class DiabetesDetectionPipeline:
     return True
 
   def update_production(self):
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     client.transition_model_version_stage(
-    name=MODEL_NAME,
     version=1,
+    name=MODEL_NAME,
     stage="Production"
 )
 
@@ -143,14 +145,15 @@ class DiabetesDetectionPipeline:
       need_deploy = we_have_a_bew_best or need_deploy
       if retrain==False:
         break
-    #7 Deploy Flask Docker
+
+    #7 End Run
+    if mlflow.active_run():
+      mlflow.end_run() 
+
+    #8 Deploy Flask App
     if need_deploy:
-      client = MlflowClient()
-      registered_models = client.search_registered_models()
-      for model in registered_models:
-          print(f"Modelo: {model.name}")
       self.update_production()
-      load_production_model()
+      update_production_model()
       
     
 
@@ -160,7 +163,11 @@ if __name__ == "__main__":
   print("Waiting for mlflow:")
   mlflow.set_tracking_uri("http://localhost:5000")
   mlflow.set_registry_uri("sqlite:///mlflow.db")
-  with mlflow.start_run(experiment_id=1) as run:
+  client = MlflowClient()
+  
+  #client.create_experiment(EXPERIMENT_NAME)
+  experiment_id= client.get_experiment_by_name(EXPERIMENT_NAME).experiment_id
+  with mlflow.start_run(experiment_id=experiment_id) as run:
     
     mlflow.set_experiment(EXPERIMENT_NAME)
     data1 = pd.read_csv('../data/data1.csv', encoding='latin-1')

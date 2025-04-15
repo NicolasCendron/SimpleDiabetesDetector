@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+import mlflow.models
+import mlflow.models.model
 from pydantic import BaseModel
 import joblib
 import uvicorn
@@ -7,7 +9,6 @@ import mlflow
 from mlflow.tracking import MlflowClient
 
 MODEL_NAME = 'Diabetes-Model'
-EXPERIMENT_NAME = 'Diabetes-Prediction'
 # Define the input schema
 class PatientData(BaseModel):
     HighBP: float
@@ -57,27 +58,26 @@ def predict(data: PatientData):
 def startup():
     global model
     try:
-        mlflow.set_tracking_uri("http://localhost:5000")
-        mlflow.set_registry_uri("sqlite:///mlflow.db")
-        client = MlflowClient()
-        registered_models = client.search_registered_models()
-        for model in registered_models:
-            print(f"Modelo: {model.name}")
-        model_name = MODEL_NAME
-        stage = "Production"
-        model_uri = f"models:/{model_name}/{stage}"
-        # FAlLTA CONSEGUIR CARREGAR DO MLFLOW
-        model = joblib.load('../models/best.pkl')
+            mlflow.set_tracking_uri("http://localhost:5000")
+            mlflow.set_registry_uri("sqlite:///mlflow.db")
+            client = MlflowClient()
+            registered_models = client.search_registered_models()
+            for model in registered_models:
+                print(f"Modelo: {model.name}")
+
+            model_name = MODEL_NAME
+            stage = "Production"
+            model = mlflow.pyfunc.load_model(f"models:/{model_name}/{stage}")
     except Exception as e:
         print(f"Erro ao carregar o modelo: {e}")
         # Encerre a API se o modelo não puder ser carregado
         raise RuntimeError("Modelo não disponível.")
 
 # Carregue o modelo em produção do MLflow
-def load_production_model():
+def update_production_model():
+
   uvicorn.run(app, host="0.0.0.0", port=8000)
 
 # Run the app
 if __name__ == "__main__":
-  load_production_model()
   uvicorn.run(app, host="0.0.0.0", port=8000)
