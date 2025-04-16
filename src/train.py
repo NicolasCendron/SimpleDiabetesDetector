@@ -12,8 +12,6 @@ from imblearn.pipeline import Pipeline
 from imblearn.pipeline import Pipeline
 from xgboost import XGBClassifier
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import GridSearchCV
-
 
 @dataclass
 class TrainingResults:
@@ -135,7 +133,7 @@ def calculate_metrics(y_test,y_pred):
     roc_auc = roc_auc_score(y_test,y_pred)
     return accuracy, precision, recall, f1, roc_auc
 
-def handle_training_results(results:TrainingResults):
+def evaluate(results:TrainingResults):
     accuracy, precision, recall,f1,roc_auc = calculate_metrics(results.y_test,results.y_pred)
     # Print classification report
     print(results.name + " Metrics:")
@@ -174,10 +172,10 @@ if __name__ == "__main__":
 
   print("Start")
   results = train(data2,args.model)
-  handle_training_results(results)
+  evaluate(results)
   
   print("Train on New Data")
   new_data = pd.concat([data2,data1],axis=0)
   results = train(new_data,args.model)
-  handle_training_results(results)
+  evaluate(results)
      

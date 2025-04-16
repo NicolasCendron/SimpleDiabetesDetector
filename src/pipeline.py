@@ -3,7 +3,7 @@ from evidently import ColumnMapping
 from evidently.report import Report
 from evidently.metrics import DatasetDriftMetric
 from preprocess import process_data
-from train import train,save_model,handle_training_results
+from train import train,save_model,evaluate
 from app import update_production_model
 import pandas as pd
 import argparse
@@ -20,9 +20,9 @@ EXPERIMENT_NAME = 'Diabetes-Prediction'
 MODEL_NAME = 'Diabetes-Model'
 
 class DiabetesDetectionPipeline:
-  def __init__(self,data_flow):
-    self.data_flow =data_flow
-    pass
+  def __init__(self,data_flow,mlflow_experiment_id):
+    self.data_flow = data_flow
+    self.mlflow_experiment_id = mlflow_experiment_id
 
   def check_drift(self,training_data,new_data):
       if training_data.empty:
@@ -37,27 +37,11 @@ class DiabetesDetectionPipeline:
           reference_data=training_data, 
           current_data=new_data
       )
-
-
-
       drift = drift_report.as_dict()['metrics'][0]['result']['dataset_drift']
       if drift:
         print("🚨 Drift detectado! Adicionando dados e retreinando o modelo.")
 
       return drift
-
-
-  def evalutate(self,training_results):
-    results = handle_training_results(training_results)
-    return results
-
-  def train(self,training_data,model_name):
-    training_results =train(training_data,model_name)
-    return training_results
-
-  def process_data(self,new_data,suffix):
-    new_data = process_data(new_data, suffix)
-    return new_data
 
   def get_input_example(self):
     return self.training_data.iloc[0:1]  # Exemplo: primeira linha dos dados de treino
@@ -108,8 +92,7 @@ class DiabetesDetectionPipeline:
     version=1,
     name=MODEL_NAME,
     stage="Production"
-)
-
+    )
     return True
 
 
@@ -123,7 +106,7 @@ class DiabetesDetectionPipeline:
       next_data_flow = self.data_flow.pop()
       #2. Preprocessing
       print("Processing Data",next_data_flow['suffix'])
-      new_data = self.process_data(next_data_flow['data'], next_data_flow['suffix'])
+      new_data = process_data(next_data_flow['data'], next_data_flow['suffix'])
       
       #3 Drift Analysis Setup
       if self.check_drift(training_data,new_data) == False:
@@ -134,11 +117,11 @@ class DiabetesDetectionPipeline:
 
       #4. Training
       print("Training Data after concat: ",next_data_flow['suffix'])
-      training_results = self.train(training_data,model_name)
+      training_results = train(training_data,model_name)
       
       #5. Evaluation
       print("Evaluating Data after concat: ",next_data_flow['suffix'])
-      evaluation_results = self.evalutate(training_results)
+      evaluation_results = evaluate(training_results)
 
       #6 Check If current Better than Last Best
       we_have_a_bew_best = self.check_if_new_winner(evaluation_results, training_results)
@@ -155,24 +138,25 @@ class DiabetesDetectionPipeline:
       self.update_production()
       update_production_model()
       
-    
+def setup_mlflow():
+  client = MlflowClient()
+  mlflow.set_tracking_uri("http://localhost:5000")
+  mlflow.set_registry_uri("sqlite:///mlflow.db")
+  if client.get_experiment_by_name(EXPERIMENT_NAME) == None:
+    client.create_experiment(EXPERIMENT_NAME)
+  return client.get_experiment_by_name(EXPERIMENT_NAME).experiment_id
 
-
+def setup_data_flow():
+  data1 = pd.read_csv('../data/data1.csv', encoding='latin-1')
+  data2 = pd.read_csv('../data/data2.csv', encoding='latin-1')
+  data_flow = [{"data":data1,"suffix":"1"},{"data":data2,"suffix":"2"}]
+  return data_flow
 
 if __name__ == "__main__":
   print("Waiting for mlflow:")
-  mlflow.set_tracking_uri("http://localhost:5000")
-  mlflow.set_registry_uri("sqlite:///mlflow.db")
-  client = MlflowClient()
-  
-  #client.create_experiment(EXPERIMENT_NAME)
-  experiment_id= client.get_experiment_by_name(EXPERIMENT_NAME).experiment_id
-  with mlflow.start_run(experiment_id=experiment_id) as run:
-    
-    mlflow.set_experiment(EXPERIMENT_NAME)
-    data1 = pd.read_csv('../data/data1.csv', encoding='latin-1')
-    data2 = pd.read_csv('../data/data2.csv', encoding='latin-1')
-    data_flow = [{"data":data1,"suffix":"1"},{"data":data2,"suffix":"2"}]
-    pipeline = DiabetesDetectionPipeline(data_flow=data_flow)
-    args = parser.parse_args()
-    pipeline.run(True,args.model)
+  mlflow_experiment_id = setup_mlflow()
+  data_flow = setup_data_flow()
+
+  pipeline = DiabetesDetectionPipeline(data_flow=data_flow)
+  args = parser.parse_args()
+  pipeline.run(True,args.model,mlflow_experiment_id)
