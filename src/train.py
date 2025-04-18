@@ -19,6 +19,7 @@ class TrainingResults:
     y_test: list
     y_pred: list
     name: str
+    X_train:list
 
 @dataclass
 class Metrics:
@@ -84,7 +85,7 @@ def train_xgboost(data,model_name):
     y_pred = pipeline.predict(X_test)
 
 
-    return TrainingResults(model=xgboost, y_test=y_test, y_pred=y_pred, name=model_name)
+    return TrainingResults(model=xgboost, y_test=y_test, y_pred=y_pred, name=model_name,X_train = X_train)
    
 
 
@@ -112,11 +113,8 @@ def train_forest(data,model_name):
   y_proba = pipeline.predict_proba(X_test)[:, 1]
   y_pred_rf = (y_proba >= 0.3).astype(int)  # Exemplo: threshold = 0.4
   
-  return TrainingResults(model=rf, y_test=y_test, y_pred=y_pred_rf, name=model_name)
+  return TrainingResults(model=rf, y_test=y_test, y_pred=y_pred_rf, name=model_name,X_train=X_train)
   
-def save_model(model,model_name):
-  joblib.dump(model,get_model_path(model_name))
-  print("Model saved!")
 
 def load_model(model_name):
   try:

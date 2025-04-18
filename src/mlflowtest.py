@@ -1,6 +1,10 @@
+import mlflow
 from sklearn.datasets import load_iris
 from sklearn.linear_model import LogisticRegression
-from mlflow.models.signature import infer_signature
+from mlflow.models import infer_signature
+
+from mlflow.tracking import MlflowClient
+from fastapi import FastAPI
 
 # 1. Configurar MLflow
 mlflow.set_tracking_uri("http://localhost:5000")
@@ -48,7 +52,7 @@ model_prod = mlflow.pyfunc.load_model("models:/Iris-Model/Production")
 
 @app.post("/predict")
 def predict(features: list):
-    return {"prediction": int(model_prod.predict([features])[0]}
+    return {"prediction": int(model_prod.predict([features])[0])}
 
 if __name__ == "__main__":
     import uvicorn

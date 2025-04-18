@@ -3,8 +3,8 @@ from evidently import ColumnMapping
 from evidently.report import Report
 from evidently.metrics import DatasetDriftMetric
 from preprocess import process_data
-from train import train,save_model,evaluate
-from app import update_production_model
+from train import train,evaluate
+from app import deploy_production_model
 import pandas as pd
 import argparse
 from mlflow.tracking import MlflowClient
@@ -15,14 +15,14 @@ parser = argparse.ArgumentParser(description="Train a spam classification model.
 parser.add_argument("--model", type=str, required=True, choices=["xgboost", "random_forest"],
                       help="Model to train: 'xgboost' or 'random_forest'")
 
-FORCE_DRIFT = False
+FORCE_DRIFT = True
+FORCE_BEST = True
 EXPERIMENT_NAME = 'Diabetes-Prediction'
 MODEL_NAME = 'Diabetes-Model'
 
 class DiabetesDetectionPipeline:
-  def __init__(self,data_flow,mlflow_experiment_id):
+  def __init__(self,data_flow):
     self.data_flow = data_flow
-    self.mlflow_experiment_id = mlflow_experiment_id
 
   def check_drift(self,training_data,new_data):
       if training_data.empty:
@@ -46,12 +46,21 @@ class DiabetesDetectionPipeline:
   def get_input_example(self):
     return self.training_data.iloc[0:1]  # Exemplo: primeira linha dos dados de treino
 
-  def save_new_best(self,training_results,old_roc,new_roc):
+  def save_new_best(self,training_results,old_roc,new_roc,run):
     
-    mlflow.sklearn.log_model(training_results.model, MODEL_NAME)
-    mlflow.register_model(model_uri=f"runs:/{run.info.run_id}/model",name=MODEL_NAME)
+    signature = infer_signature(training_results.X_train,training_results.model.predict(training_results.X_train))
+    mlflow.sklearn.log_model(sk_model=training_results.model, artifact_path="model",signature=signature)
     
-    save_model(training_results.model, "best")  # Atualiza o modelo em produção
+    model_uri = f"runs:/{run.info.run_id}/model"
+    registered_model =mlflow.register_model(model_uri,MODEL_NAME)
+
+    client = MlflowClient()
+    client.transition_model_version_stage(
+    name=MODEL_NAME,
+    version=registered_model.version,
+    stage="Production"
+)
+
     print(f"🎉 Novo melhor ROC: {new_roc:.4f} (anterior: {old_roc:.4f})")
 
 
@@ -62,7 +71,7 @@ class DiabetesDetectionPipeline:
     mlflow.log_metric("f1_score", evaluation_results.f1_score)
     mlflow.log_metric("roc_auc_score", evaluation_results.roc_auc_score)
 
-  def check_if_new_winner(self,evaluation_results, training_results):
+  def check_if_new_winner(self,evaluation_results, training_results,run):
     client = MlflowClient()
     experiment = client.get_experiment_by_name(EXPERIMENT_NAME)
     runs = client.search_runs(
@@ -78,22 +87,14 @@ class DiabetesDetectionPipeline:
 
     new_roc = evaluation_results.roc_auc_score
     
-    if new_roc > best_roc:
-        self.save_new_best(training_results,best_roc,new_roc)
+    if FORCE_BEST or new_roc > best_roc:
+        self.save_new_best(training_results,best_roc,new_roc,run)
     else:
         print(f"⚠️  ROC atual ({new_roc:.4f}) não supera o melhor ({best_roc:.4f})")
     
     self.save_metrics(evaluation_results)
     return True
 
-  def update_production(self):
-    client = MlflowClient()
-    client.transition_model_version_stage(
-    version=1,
-    name=MODEL_NAME,
-    stage="Production"
-    )
-    return True
 
 
   def run(self,retrain =False,model_name='xgboost'):
@@ -113,40 +114,38 @@ class DiabetesDetectionPipeline:
         print("✅ Sem drift. Dados serão ignorados para retreinamento.")
         continue
 
-      training_data = pd.concat([training_data,new_data],axis=0)
+      #3.1 Detected Drift
 
-      #4. Training
-      print("Training Data after concat: ",next_data_flow['suffix'])
-      training_results = train(training_data,model_name)
-      
-      #5. Evaluation
-      print("Evaluating Data after concat: ",next_data_flow['suffix'])
-      evaluation_results = evaluate(training_results)
+      with mlflow.start_run() as run:
+        training_data = pd.concat([training_data,new_data],axis=0)
 
-      #6 Check If current Better than Last Best
-      we_have_a_bew_best = self.check_if_new_winner(evaluation_results, training_results)
-      need_deploy = we_have_a_bew_best or need_deploy
-      if retrain==False:
-        break
+        #4. Training
+        print("Training Data after concat: ",next_data_flow['suffix'])
+        training_results = train(training_data,model_name)
+        
+        #5. Evaluation
+        print("Evaluating Data after concat: ",next_data_flow['suffix'])
+        evaluation_results = evaluate(training_results)
 
-    #7 End Run
-    if mlflow.active_run():
-      mlflow.end_run() 
+        #6 Check If current Better than Last Best
+        we_have_a_bew_best = self.check_if_new_winner(evaluation_results, training_results,run)
+        need_deploy = we_have_a_bew_best or need_deploy
+        if retrain==False:
+          break
 
-    #8 Deploy Flask App
+
+    #7 Deploy Flask App
     if need_deploy:
-      self.update_production()
-      update_production_model()
+      deploy_production_model()
       
 def setup_mlflow():
-  client = MlflowClient()
+
   mlflow.set_tracking_uri("http://localhost:5000")
-  mlflow.set_registry_uri("sqlite:///mlflow.db")
-  if client.get_experiment_by_name(EXPERIMENT_NAME) == None:
-    client.create_experiment(EXPERIMENT_NAME)
-  return client.get_experiment_by_name(EXPERIMENT_NAME).experiment_id
+  mlflow.set_experiment(EXPERIMENT_NAME)
+  return
 
 def setup_data_flow():
+
   data1 = pd.read_csv('../data/data1.csv', encoding='latin-1')
   data2 = pd.read_csv('../data/data2.csv', encoding='latin-1')
   data_flow = [{"data":data1,"suffix":"1"},{"data":data2,"suffix":"2"}]
@@ -154,9 +153,9 @@ def setup_data_flow():
 
 if __name__ == "__main__":
   print("Waiting for mlflow:")
-  mlflow_experiment_id = setup_mlflow()
+  setup_mlflow()
   data_flow = setup_data_flow()
 
   pipeline = DiabetesDetectionPipeline(data_flow=data_flow)
   args = parser.parse_args()
-  pipeline.run(True,args.model,mlflow_experiment_id)
+  pipeline.run(True,args.model)
