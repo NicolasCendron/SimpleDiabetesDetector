@@ -3,6 +3,9 @@
 # Virtual environment
 spam_classification/
 
+# MLFlow Runs
+mlruns/
+
 
 
 # IDE files
