@@ -3,9 +3,8 @@
 # Virtual environment
 spam_classification/
 
-# MLFlow Runs
+# Ignore MLflow tracking data
 mlruns/
-
 
 
 # IDE files
