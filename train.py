@@ -116,12 +116,6 @@ def train_forest(data,model_name):
   return TrainingResults(model=rf, y_test=y_test, y_pred=y_pred_rf, name=model_name,X_train=X_train)
   
 
-def load_model(model_name):
-  try:
-    return joblib.load(get_model_path(model_name))
-  except FileNotFoundError:
-    return None
-
 def calculate_metrics(y_test,y_pred):
     # Calculate metrics
     accuracy = accuracy_score(y_test, y_pred)
@@ -165,8 +159,8 @@ if __name__ == "__main__":
   parser.add_argument("--model", type=str, required=True, choices=["xgboost", "random_forest"],
                       help="Model to train: 'xgboost' or 'random_forest'")
   args = parser.parse_args()
-  data1 =load_dataset('../data/data_cleaned1.csv')
-  data2 =load_dataset('../data/data_cleaned2.csv')
+  data1 =load_dataset('data/data_cleaned1.csv')
+  data2 =load_dataset('data/data_cleaned2.csv')
 
   print("Start")
   results = train(data2,args.model)

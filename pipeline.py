@@ -4,7 +4,6 @@ from evidently.report import Report
 from evidently.metrics import DatasetDriftMetric
 from preprocess import process_data
 from train import train,evaluate
-from app import deploy_production_model
 import pandas as pd
 import argparse
 from mlflow.tracking import MlflowClient
@@ -133,21 +132,18 @@ class DiabetesDetectionPipeline:
         if retrain==False:
           break
 
-
-    #7 Deploy Flask App
-    if need_deploy:
-      deploy_production_model()
       
 def setup_mlflow():
 
   mlflow.set_tracking_uri("http://localhost:5000")
+  mlflow.set_tracking_uri("sqlite:///mlflow.db")
   mlflow.set_experiment(EXPERIMENT_NAME)
   return
 
 def setup_data_flow():
 
-  data1 = pd.read_csv('../data/data1.csv', encoding='latin-1')
-  data2 = pd.read_csv('../data/data2.csv', encoding='latin-1')
+  data1 = pd.read_csv('data/data1.csv', encoding='latin-1')
+  data2 = pd.read_csv('data/data2.csv', encoding='latin-1')
   data_flow = [{"data":data1,"suffix":"1"},{"data":data2,"suffix":"2"}]
   return data_flow
 

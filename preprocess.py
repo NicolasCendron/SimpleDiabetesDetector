@@ -18,7 +18,7 @@ def check_data(data):
   #plotClasses(data,'Original Class Distribution')
 
 def save_data(data,suffix):
-    data.to_csv('../data/data_cleaned' + suffix +'.csv', index=False)
+    data.to_csv('data/data_cleaned' + suffix +'.csv', index=False)
     print("Data saves saved!")
    
 
@@ -69,11 +69,11 @@ def process_data(df,suffix=''):
   return df
 
 if __name__ == "__main__":
-  data = pd.read_csv('../data/data1.csv', encoding='latin-1')
+  data = pd.read_csv('data/data1.csv', encoding='latin-1')
   clean_data = process_data(data,'1')
  #plotClasses(clean_data,"Class Distribution 1")
 
-  data2 = pd.read_csv('../data/data2.csv', encoding='latin-1')
+  data2 = pd.read_csv('data/data2.csv', encoding='latin-1')
   clean_data2 = process_data(data2,'2')
   #plotClasses(clean_data,"Class Distribution 2")
   
