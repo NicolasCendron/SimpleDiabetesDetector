@@ -16,10 +16,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Explicit Python path
-ENV PYTHONPATH=/app
-ENV MLFLOW_TRACKING_URI=http://host.docker.internal:5000
-
 # Expose port
 EXPOSE 8000
 

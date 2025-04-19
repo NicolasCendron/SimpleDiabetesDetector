@@ -5,8 +5,9 @@ import mlflow
 import pandas as pd
 import logging
 import traceback  # Add for error stack traces
+import joblib
 
-EXPERIMENT_NAME = 'Diabetes-Prediction'
+
 #MLFLOW_TRACKING_URL = "http://host.docker.internal:5000"
 #MLFLOW_TRACKING_URL = "http://localhost:5000/"
 
@@ -63,7 +64,6 @@ def predict(data: PatientData):
 
         # Make prediction
         prediction = model.predict(input_df)[0]
-
         if int(prediction) == 1:
             return {"prediction: Risk of diabetes detected. See your doctor."}
         else:
@@ -73,27 +73,15 @@ def predict(data: PatientData):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/health")
-def health_check():
-    try:
-        # Ping MLflow server
-        client = mlflow.MlflowClient()
-        experiments = client.search_experiments()
-        
-        return {"status": "healthy", "mlflow_connected": True, "#experiments":experiments.count()}
-    except Exception as e:
-        return {"status": "unhealthy", "error": str(e)}
-
 @app.on_event("startup")
 def startup():
     global model
     try:
-            mlflow.set_tracking_uri("sqlite:////app/mlflow.db")  # Absolute path in Docker
-            #mlflow.set_registry_uri("mlflow.db")
-            logger.info("Initializing MLflow connection...: http://host.docker.internal:5000")
-            logger.info("Loading production model...")
-            mlflow.set_experiment(EXPERIMENT_NAME)
-            model = mlflow.pyfunc.load_model("models:/Diabetes-Model/Production")
+
+            logger.info("Loading Model")
+
+            model = joblib.load("production_model.joblib")
+
             logger.info("Model loaded successfully")
             
     except Exception as e:
@@ -104,4 +92,4 @@ def startup():
 
 # Run the app
 #if __name__ == "__main__":
-  #uvicorn.run(app, host="0.0.0.0", port=8000)
+ # uvicorn.run(app, host="0.0.0.0", port=8000)

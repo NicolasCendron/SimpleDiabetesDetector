@@ -13,7 +13,12 @@ Install Python 3.10 (recommended virtual env)
 0. Run mlflow
    mlflow server \
    --default-artifact-root ./mlruns \
-   --backend-store-uri sqlite:///mlflow.db
+   --host 0.0.0.0 \
+   --port 5000
+
+   mlflow server \
+   --default-artifact-root ./mlruns \
+   --backend-store-uri sqlite:///mlflow.db \
    --host 0.0.0.0 \
    --port 5000
 
@@ -22,8 +27,6 @@ Install Python 3.10 (recommended virtual env)
    ```bash
    python -m pip install -r requirements.txt
    ```
-
-1.1 cd src (Move to folder)
 
 2. Split Data between "Original" and "New" to Monitor Drift Later
 
@@ -39,13 +42,17 @@ python pipeline.py --model random_forest
 
 3. Check Experiments and Models on MLFlow (http://localhost:5000/)
 
-4. Run Dockerfile:
+4. Fetch Production Model
+
+   python fetch_production_model.py
+
+5. Run Dockerfile:
    docker build -t diabetes-api .
-   docker run -p 8000:8000 --add-host=host.docker.internal:host-gateway --log-driver=local -e MLFLOW_TRACKING_URI=http://host.docker.internal:5000 --name diabetes-api diabetes-api
+   docker run -p 8000:8000 --log-driver=local --name diabetes-api diabetes-api
 
    (Keep in mind your mlflow should be running)
 
-5. Run predictions on http://localhost:8000/predict (POST)
+6. Run predictions on http://localhost:8000/predict (POST)
 
 For Documentation on features refer to Kaggle page.
 
