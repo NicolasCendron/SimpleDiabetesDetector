@@ -10,29 +10,30 @@ Install Python 3.10 (recommended virtual env)
 
 ## How to Run
 
-0. Run mlflow
-   mlflow server \
-   --default-artifact-root ./mlruns \
-   --host 0.0.0.0 \
-   --port 5000
+### 0. Run mlflow
 
-   mlflow server \
-   --default-artifact-root ./mlruns \
-   --backend-store-uri sqlite:///mlflow.db \
-   --host 0.0.0.0 \
-   --port 5000
+mlflow server \
+ --default-artifact-root ./mlruns \
+ --host 0.0.0.0 \
+ --port 5000
 
-1. Install dependencies:
+mlflow server \
+ --default-artifact-root ./mlruns \
+ --backend-store-uri sqlite:///mlflow.db \
+ --host 0.0.0.0 \
+ --port 5000
 
-   ```bash
-   python -m pip install -r requirements.txt
-   ```
+### 1. Install dependencies:
 
-2. Split Data between "Original" and "New" to Monitor Drift Later
+```bash
+python -m pip install -r requirements.txt
+```
+
+### 2. Split Data between "Original" and "New" to Monitor Drift Later
 
 python split_csv.py
 
-2. Run pipeline:
+### 3. Run pipeline:
 
 python pipeline.py --model xgboost
 
@@ -40,25 +41,26 @@ or
 
 python pipeline.py --model random_forest
 
-3. Check Experiments and Models on MLFlow (http://localhost:5000/)
+### 4. Check Experiments and Models on MLFlow (http://localhost:5000/)
 
-4. Fetch Production Model
+### 5. Fetch Production Model
 
-   python fetch_production_model.py
+python fetch_production_model.py
 
-5. Run Dockerfile:
-   docker build -t diabetes-api .
-   docker run -p 8000:8000 --log-driver=local --name diabetes-api diabetes-api
+### 6. Run Dockerfile:
 
-   (Keep in mind your mlflow should be running)
+docker build -t diabetes-api .
+docker run -p 8000:8000 --log-driver=local --name diabetes-api diabetes-api
 
-6. Run predictions on http://localhost:8000/predict (POST)
+(Keep in mind your mlflow should be running)
+
+### 7. Run predictions on http://localhost:8000/predict (POST)
 
 For Documentation on features refer to Kaggle page.
 
-Examples
+### Body Examples
 
-Expected: High Diabetes Risk
+### Expected: High Diabetes Risk
 
 ```json
 {
@@ -86,7 +88,7 @@ Expected: High Diabetes Risk
 }
 ```
 
-Expected: Low Diabetes Risk
+### Expected: Low Diabetes Risk
 
 ```json
 {

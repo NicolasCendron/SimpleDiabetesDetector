@@ -76,7 +76,6 @@ def train_xgboost(data,model_name):
   )
     
     pipeline = Pipeline([
-    ('scaler', StandardScaler()),
     ('smote', SMOTE(random_state=42)),
     ('model', xgboost)
     ])
