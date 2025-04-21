@@ -2,6 +2,9 @@
 
 This project aims to predict diabetes on patients given medical featurs.
 
+Git
+https://github.com/NicolasCendron/SimpleDiabetesDetector
+
 ## Before Start
 
 Download Diabetes dataset: https://www.kaggle.com/datasets/alexteboul/diabetes-health-indicators-dataset
@@ -11,11 +14,6 @@ Install Python 3.10 (recommended virtual env)
 ## How to Run
 
 ### 0. Run mlflow
-
-mlflow server \
- --default-artifact-root ./mlruns \
- --host 0.0.0.0 \
- --port 5000
 
 mlflow server \
  --default-artifact-root ./mlruns \
@@ -31,28 +29,37 @@ python -m pip install -r requirements.txt
 
 ### 2. Split Data between "Original" and "New" to Monitor Drift Later
 
+```bash
 python split_csv.py
+```
 
 ### 3. Run pipeline:
 
+```bash
 python pipeline.py --model xgboost
 
 or
 
 python pipeline.py --model random_forest
+```
 
 ### 4. Check Experiments and Models on MLFlow (http://localhost:5000/)
 
 ### 5. Fetch Production Model
 
+```bash
 python fetch_production_model.py
+```
 
 ### 6. Run Dockerfile:
 
+```bash
 docker build -t diabetes-api .
-docker run -p 8000:8000 --log-driver=local --name diabetes-api diabetes-api
+```
 
-(Keep in mind your mlflow should be running)
+```bash
+docker run -p 8000:8000 --log-driver=local --name diabetes-api diabetes-api
+```
 
 ### 7. Run predictions on http://localhost:8000/predict (POST)
 
